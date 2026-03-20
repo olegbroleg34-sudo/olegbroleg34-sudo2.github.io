@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Свойства окружностей — редактор</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#1a1a2e;color:#eee;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#toolbar{display:flex;align-items:center;gap:5px;padding:6px 10px;background:#16213e;border-bottom:1px solid #0f3460;flex-shrink:0;flex-wrap:wrap}
+.tg{display:flex;gap:3px;align-items:center}
+.ts{width:1px;height:20px;background:#0f3460;margin:0 3px}
+.tl{font-size:10px;color:#556;margin-right:2px;white-space:nowrap}
+button.tb{padding:4px 8px;border-radius:4px;border:1px solid #0f3460;background:#0f3460;color:#ccd;font-size:11px;cursor:pointer;transition:background .1s;white-space:nowrap}
+button.tb:hover{background:#1a4a8a;color:#fff}
+button.tb.del{background:#3a1020;border-color:#c43;color:#f86}
+button.tb.del:hover{background:#c43;color:#fff}
+#zl{font-size:11px;color:#888;min-width:34px;text-align:center}
+input[type=color].tb{width:26px;height:24px;padding:1px;border-radius:3px;border:1px solid #0f3460;cursor:pointer}
+input[type=number].tb{width:44px;padding:3px 4px;border-radius:3px;border:1px solid #0f3460;background:#0f3460;color:#ccd;font-size:11px}
+#cw{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px;background:#12122a}
+#sc{background:#fff;box-shadow:0 4px 32px rgba(0,0,0,.6);display:block}
+.hit{fill:transparent;stroke:transparent}
+.obj-g:not(.locked){cursor:move}
+.obj-g:not(.locked):hover .hit{stroke:rgba(33,150,243,.18);stroke-width:5}
+.obj-g.editing-mode{cursor:text}
+/* foreignObject editor div */
+.svg-editor{
+  width:100%;height:100%;
+  border:none;outline:none;
+  background:rgba(255,255,224,0.95);
+  font-family:Arial,sans-serif;
+  white-space:pre-wrap;word-break:break-word;
+  caret-color:#2196F3;
+  padding:2px 4px;
+  border-radius:2px;
+  box-shadow:0 0 0 2px #2196F3, 0 2px 12px rgba(33,150,243,.3);
+}
+/* Floating format toolbar shown during text editing */
+#fmt-bar{
+  position:fixed;
+  display:none;
+  z-index:10000;
+  background:#1e293b;
+  border:1px solid #334155;
+  border-radius:6px;
+  padding:4px 6px;
+  gap:3px;
+  align-items:center;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);
+  flex-wrap:nowrap;
+  user-select:none;
+}
+#fmt-bar button{
+  padding:3px 7px;border-radius:3px;border:1px solid #334155;
+  background:#0f172a;color:#cbd5e1;font-size:11px;cursor:pointer;
+  transition:background .1s;white-space:nowrap;min-width:24px;text-align:center;
+}
+#fmt-bar button:hover{background:#2563eb;color:#fff;border-color:#2563eb;}
+#fmt-bar button.active{background:#2563eb;color:#fff;border-color:#2563eb;}
+#fmt-bar .sep{width:1px;height:18px;background:#334155;margin:0 2px;flex-shrink:0;}
+#fmt-bar input[type=number]{
+  width:42px;padding:2px 4px;border-radius:3px;
+  border:1px solid #334155;background:#0f172a;color:#cbd5e1;
+  font-size:11px;text-align:center;
+}
+#fmt-bar input[type=color]{
+  width:24px;height:22px;padding:1px;border-radius:3px;
+  border:1px solid #334155;cursor:pointer;background:none;
+}
+#fmt-bar label{font-size:10px;color:#94a3b8;white-space:nowrap;}
+#status{padding:3px 10px;font-size:11px;color:#667;background:#16213e;border-top:1px solid #0f3460;flex-shrink:0;min-height:22px}
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <div class="tg">
+    <span class="tl">Добавить:</span>
+    <button class="tb" onclick="addObj('circle')">⭕ Круг</button>
+    <button class="tb" onclick="addObj('text')">T Текст</button>
+    <button class="tb" onclick="addObj('line')">╱ Линия</button>
+    <button class="tb" onclick="addObj('rect')">▭ Прямоугольник</button>
+  </div>
+  <div class="ts"></div>
+  <div class="tg">
+    <span class="tl">Обводка:</span>
+    <input type="color" class="tb" id="sc_col" value="#222222" oninput="applyAttr('stroke',this.value)">
+    <span class="tl">Заливка:</span>
+    <input type="color" class="tb" id="fc_col" value="#ffffff" oninput="applyAttr('fill',this.value)">
+    <span class="tl">Толщ:</span>
+    <input type="number" class="tb" id="sw_in" value="1.5" min="0.5" max="12" step="0.5" oninput="applyAttr('sw',parseFloat(this.value))">
+  </div>
+  <div class="ts"></div>
+  <div class="tg">
+    <span class="tl">Угол°:</span>
+    <input type="number" class="tb" id="rot_in" value="0" min="-360" max="360" step="1" style="width:50px" oninput="applyRotation(parseFloat(this.value))">
+  </div>
+  <div class="ts"></div>
+  <div class="tg">
+    <span class="tl">Зум:</span>
+    <button class="tb" onclick="doZoom(-0.15)">−</button>
+    <span id="zl">100%</span>
+    <button class="tb" onclick="doZoom(0.15)">+</button>
+    <button class="tb" onclick="doZoom(0)">1:1</button>
+  </div>
+  <div class="ts"></div>
+  <div class="tg">
+    <button class="tb" id="undoBtn" onclick="undo()">↩ Отменить</button>
+    <button class="tb" id="redoBtn" onclick="redo()">↪ Повторить</button>
+  </div>
+  <div class="ts"></div>
+  <div class="tg">
+    <button class="tb" onclick="reorder(1)">↑ Выше</button>
+    <button class="tb" onclick="reorder(-1)">↓ Ниже</button>
+    <button class="tb del" onclick="delSel()">🗑 Удалить</button>
+  </div>
+  <div class="ts"></div>
+  <button class="tb" onclick="exportSVG()" style="background:#1a4a2a;border-color:#2a8a4a;color:#8f8">💾 SVG</button>
+</div>
+
+<div id="cw">
+  <svg id="sc" xmlns="http://www.w3.org/2000/svg" width="488" height="700" viewBox="0 0 488 700">
+    <defs>
+      <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#222"/>
+      </marker>
+    </defs>
+    <g id="ol"></g>
+    <g id="sl" style="pointer-events:none"></g>
+  </svg>
+</div>
+<div id="status">Готово</div>
+
+<div id="fmt-bar">
+  <select id="fmt-font" title="Шрифт" onchange="fmtFont(this.value)"
+    style="padding:2px 4px;border-radius:3px;border:1px solid #334155;background:#0f172a;color:#cbd5e1;font-size:11px;cursor:pointer;max-width:140px">
+    <option value="Arial, sans-serif" style="font-family:Arial,sans-serif">Arial</option>
+    <option value="'Times New Roman', serif" style="font-family:'Times New Roman', serif">Times New Roman</option>
+    <option value="'Courier New', monospace" style="font-family:'Courier New', monospace">Courier New</option>
+    <option value="Georgia, serif" style="font-family:Georgia, serif">Georgia</option>
+    <option value="Verdana, sans-serif" style="font-family:Verdana, sans-serif">Verdana</option>
+    <option value="'Trebuchet MS', sans-serif" style="font-family:'Trebuchet MS', sans-serif">Trebuchet MS</option>
+    <option value="Impact, sans-serif" style="font-family:Impact, sans-serif">Impact</option>
+    <option value="'Comic Sans MS', cursive" style="font-family:'Comic Sans MS', cursive">Comic Sans</option>
+    <option value="'Palatino Linotype', serif" style="font-family:'Palatino Linotype', serif">Palatino</option>
+    <option value="Tahoma, sans-serif" style="font-family:Tahoma, sans-serif">Tahoma</option>
+    <option value="'Arial Narrow', sans-serif" style="font-family:'Arial Narrow', sans-serif">Arial Narrow</option>
+    <option value="'Book Antiqua', serif" style="font-family:'Book Antiqua', serif">Book Antiqua</option>
+  </select>
+  <div class="sep"></div>
+  <label>Размер:</label>
+  <input type="number" id="fmt-fs" value="10" min="4" max="120" step="1"
+    title="Размер шрифта"
+    oninput="fmtFontSize(parseInt(this.value))">
+  <div class="sep"></div>
+  <button id="fmt-b" onclick="fmtToggle('bold')" title="Жирный (Ctrl+B)"><b>B</b></button>
+  <button id="fmt-i" onclick="fmtToggle('italic')" title="Курсив (Ctrl+I)"><i>I</i></button>
+  <button id="fmt-u" onclick="fmtToggle('underline')" title="Подчёркнутый (Ctrl+U)"><u>U</u></button>
+  <div class="sep"></div>
+  <button id="fmt-al" onclick="fmtAlign('left')"   title="По левому краю">⬅</button>
+  <button id="fmt-ac" onclick="fmtAlign('center')" title="По центру">☰</button>
+  <button id="fmt-ar" onclick="fmtAlign('right')"  title="По правому краю">➡</button>
+  <div class="sep"></div>
+  <label>Цвет:</label>
+  <input type="color" id="fmt-col" value="#222222" title="Цвет текста"
+    oninput="fmtColor(this.value)">
+  <div class="sep"></div>
+  <button onclick="exitEdit(true)" title="Сохранить (Ctrl+Enter)" style="color:#4ade80">✓ Сохранить</button>
+  <button onclick="exitEdit(false)" title="Отменить (Escape)" style="color:#f87171">✕</button>
+</div>
+
+<script>
+const SVG_W=488, SVG_H=700;
+const NS='http://www.w3.org/2000/svg';
+const $svg=document.getElementById('sc');
+const $ol=document.getElementById('ol');
+const $sl=document.getElementById('sl');
+const $st=document.getElementById('status');
+
+let scale=1, oid=0, objs=[];
+let sel=null, multiSel=[], multiStarts={};
+let mode='idle'; // idle|drag|resize|rotate|rubberband|multidrag|editing
+let rh='', ds={x:0,y:0}, os={};
+let rbStart={x:0,y:0}, rbEl=null;
+
+// ── TEXT EDIT STATE ───────────────────────────────────
+let editObj=null;      // obj being edited
+let editFO=null;       // the foreignObject SVG element
+let editDiv=null;      // the contenteditable div inside it
+
+// ── HISTORY ───────────────────────────────────────────
+let history=[], histIdx=-1;
+function snapshot(){
+  history=history.slice(0,histIdx+1);
+  history.push(JSON.parse(JSON.stringify(objs)));
+  if(history.length>80)history.shift();
+  histIdx=history.length-1;
+  updateUndoUI();
+}
+function undo(){
+  if(histIdx<=0)return;
+  histIdx--;
+  objs=JSON.parse(JSON.stringify(history[histIdx]));
+  exitEdit(false); clearAll(); renderAll(); updateUndoUI(); st('Отменено ↩');
+}
+function redo(){
+  if(histIdx>=history.length-1)return;
+  histIdx++;
+  objs=JSON.parse(JSON.stringify(history[histIdx]));
+  exitEdit(false); clearAll(); renderAll(); updateUndoUI(); st('Повторено ↪');
+}
+function updateUndoUI(){
+  document.getElementById('undoBtn').style.opacity=histIdx<=0?'.4':'1';
+  document.getElementById('redoBtn').style.opacity=histIdx>=history.length-1?'.4':'1';
+}
+document.addEventListener('keydown',e=>{
+  if(mode==='editing'){
+    if(e.key==='Escape'){exitEdit(false);e.preventDefault();return;}
+    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){exitEdit(true);e.preventDefault();return;}
+    if((e.ctrlKey||e.metaKey)&&e.key==='b'){e.preventDefault();fmtToggle('bold');return;}
+    if((e.ctrlKey||e.metaKey)&&e.key==='i'){e.preventDefault();fmtToggle('italic');return;}
+    if((e.ctrlKey||e.metaKey)&&e.key==='u'){e.preventDefault();fmtToggle('underline');return;}
+    return;
+  }
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault();undo();}
+  if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))){e.preventDefault();redo();}
+  if((e.key==='Delete'||e.key==='Backspace')&&(sel||multiSel.length)){e.preventDefault();delSel();}
+  if(e.key==='Escape')clearAll();
+});
+
+// ── DATA ─────────────────────────────────────────────
+const DATA=[
+{id:'bg',type:'rect',x:0,y:0,w:488,h:700,fill:'#f5f0e0',stroke:'none',sw:0,locked:1},
+{id:'border',type:'rect',x:3,y:3,w:482,h:694,fill:'none',stroke:'#7755aa',sw:4,locked:1},
+{id:'title_bg',type:'rect',x:3,y:3,w:482,h:26,fill:'#7755aa',stroke:'none',sw:0,locked:1},
+{id:'s1hbg',type:'rect',x:3,y:29,w:482,h:18,fill:'#4a9e4a',stroke:'none',sw:0,locked:1},
+{id:'s1bg',type:'rect',x:3,y:47,w:482,h:120,fill:'#fff8ee',stroke:'none',sw:0,locked:1},
+{id:'s2hbg',type:'rect',x:3,y:167,w:482,h:18,fill:'#4a9e4a',stroke:'none',sw:0,locked:1},
+{id:'s2bg',type:'rect',x:3,y:185,w:482,h:120,fill:'#fff8ee',stroke:'none',sw:0,locked:1},
+{id:'s3hbg',type:'rect',x:3,y:308,w:482,h:18,fill:'#4a9e4a',stroke:'none',sw:0,locked:1},
+{id:'s3bg',type:'rect',x:3,y:326,w:482,h:118,fill:'#fff8ee',stroke:'none',sw:0,locked:1},
+{id:'s4hbg',type:'rect',x:3,y:444,w:482,h:18,fill:'#4a9e4a',stroke:'none',sw:0,locked:1},
+{id:'s4bg',type:'rect',x:3,y:462,w:482,h:235,fill:'#fff8ee',stroke:'none',sw:0,locked:1},
+{id:'botbar',type:'rect',x:3,y:697,w:482,h:3,fill:'#7755aa',stroke:'none',sw:0,locked:1},
+{id:'tt',type:'text',x:244,y:21,text:'СВОЙСТВА ОКРУЖНОСТЕЙ',fs:13,fw:'bold',fill:'#ffffff',anc:'middle'},
+{id:'s1ht',type:'text',x:244,y:42,text:'ПРЯМЫЕ, ОТРЕЗКИ И УГЛЫ, СВЯЗАННЫЕ С ОКРУЖНОСТЬЮ',fs:10.5,fw:'bold',fill:'#ffffff',anc:'middle'},
+{id:'s2ht',type:'text',x:244,y:180,text:'ВЗАИМНОЕ РАСПОЛОЖЕНИЕ ОКРУЖНОСТИ И ПРЯМОЙ',fs:10.5,fw:'bold',fill:'#ffffff',anc:'middle'},
+{id:'s3ht',type:'text',x:244,y:321,text:'ВЗАИМНОЕ РАСПОЛОЖЕНИЕ ОКРУЖНОСТИ И ТОЧКИ',fs:10.5,fw:'bold',fill:'#ffffff',anc:'middle'},
+{id:'s4ht',type:'text',x:244,y:457,text:'ВЗАИМНОЕ РАСПОЛОЖЕНИЕ ДВУХ ОКРУЖНОСТЕЙ',fs:10.5,fw:'bold',fill:'#ffffff',anc:'middle'},
+{id:'dv11',type:'line',x1:160,y1:47,x2:160,y2:167,stroke:'#bbb',sw:1},
+{id:'dv12',type:'line',x1:310,y1:47,x2:310,y2:167,stroke:'#bbb',sw:1},
+{id:'dv13',type:'line',x1:390,y1:47,x2:390,y2:167,stroke:'#bbb',sw:1},
+{id:'dv21',type:'line',x1:155,y1:185,x2:155,y2:308,stroke:'#bbb',sw:1},
+{id:'dv22',type:'line',x1:315,y1:185,x2:315,y2:308,stroke:'#bbb',sw:1},
+{id:'dv31',type:'line',x1:155,y1:326,x2:155,y2:444,stroke:'#bbb',sw:1},
+{id:'dv32',type:'line',x1:315,y1:326,x2:315,y2:444,stroke:'#bbb',sw:1},
+{id:'dv41',type:'line',x1:155,y1:462,x2:155,y2:581,stroke:'#bbb',sw:1},
+{id:'dv42',type:'line',x1:320,y1:462,x2:320,y2:581,stroke:'#bbb',sw:1},
+{id:'dv43',type:'line',x1:3,y1:581,x2:485,y2:581,stroke:'#bbb',sw:1},
+{id:'dv44',type:'line',x1:240,y1:581,x2:240,y2:700,stroke:'#bbb',sw:1},
+{id:'s1d1sec',type:'line',x1:30,y1:120,x2:130,y2:138,stroke:'#2244cc',sw:1.5},
+{id:'s1d1c',type:'circle',cx:80,cy:102,r:42,fill:'none',stroke:'#222',sw:1.5},
+{id:'s1d1diam',type:'line',x1:38,y1:102,x2:122,y2:102,stroke:'#222',sw:1.3},
+{id:'s1d1chord',type:'line',x1:45,y1:130,x2:118,y2:118,stroke:'#222',sw:1.3},
+{id:'s1d1rad',type:'line',x1:80,y1:102,x2:99,y2:68,stroke:'#222',sw:1.3},
+{id:'s1d1tang',type:'line',x1:122,y1:55,x2:122,y2:150,stroke:'#cc0000',sw:1.5},
+{id:'s1d1tcp',type:'circle',cx:122,cy:102,r:2.5,fill:'#cc0000',stroke:'none',sw:0},
+{id:'s1d1cp',type:'circle',cx:80,cy:102,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s1d1tr',type:'text',x:87,y:84,text:'радиус',fs:8,fill:'#222',anc:'start'},
+{id:'s1d1td',type:'text',x:50,y:99,text:'диаметр',fs:8,fill:'#222',anc:'start'},
+{id:'s1d1tch',type:'text',x:58,y:127,text:'хорда',fs:8,fill:'#222',anc:'start'},
+{id:'s1d1ttg',type:'text',x:124,y:62,text:'касательная',fs:8,fill:'#cc0000',anc:'start'},
+{id:'s1d1tsc',type:'text',x:32,y:150,text:'секущая',fs:8,fill:'#2244cc',anc:'start'},
+{id:'s1d2v1',type:'line',x1:215,y1:140,x2:180,y2:80,stroke:'#222',sw:1.2},
+{id:'s1d2v2',type:'line',x1:215,y1:140,x2:250,y2:80,stroke:'#222',sw:1.2},
+{id:'s1d2c1',type:'line',x1:215,y1:100,x2:180,y2:80,stroke:'#cc0000',sw:1.4},
+{id:'s1d2c2',type:'line',x1:215,y1:100,x2:250,y2:80,stroke:'#cc0000',sw:1.4},
+{id:'s1d2circ',type:'circle',cx:215,cy:100,r:40,fill:'none',stroke:'#222',sw:1.5},
+{id:'s1d2p1',type:'circle',cx:180,cy:80,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s1d2p2',type:'circle',cx:250,cy:80,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s1d2p3',type:'circle',cx:215,cy:140,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s1d2cp',type:'circle',cx:215,cy:100,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s1d2to',type:'text',x:218,y:103,text:'O',fs:9,fill:'#222',anc:'start'},
+{id:'s1d2tv',type:'text',x:215,y:62,text:'вписанный',fs:8,fill:'#222',anc:'middle'},
+{id:'s1d2tc',type:'text',x:215,y:122,text:'центральный',fs:8,fill:'#cc0000',anc:'middle'},
+{id:'s1d3v1',type:'line',x1:360,y1:60,x2:327,y2:122,stroke:'#222',sw:1.2},
+{id:'s1d3v2',type:'line',x1:360,y1:60,x2:393,y2:122,stroke:'#222',sw:1.2},
+{id:'s1d3c1',type:'line',x1:360,y1:100,x2:327,y2:122,stroke:'#cc0000',sw:1.4},
+{id:'s1d3c2',type:'line',x1:360,y1:100,x2:393,y2:122,stroke:'#cc0000',sw:1.4},
+{id:'s1d3circ',type:'circle',cx:360,cy:100,r:40,fill:'none',stroke:'#222',sw:1.5},
+{id:'s1d3qp',type:'circle',cx:360,cy:60,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s1d3p1',type:'circle',cx:327,cy:122,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s1d3p2',type:'circle',cx:393,cy:122,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s1d3cp',type:'circle',cx:360,cy:100,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s1d3to',type:'text',x:363,y:103,text:'O',fs:9,fill:'#222',anc:'start'},
+{id:'s1d3tq',type:'text',x:363,y:59,text:'Q',fs:9,fill:'#222',anc:'start'},
+{id:'s1d3tv',type:'text',x:360,y:63,text:'вписанный',fs:8,fill:'#222',anc:'middle'},
+{id:'s1d3tc',type:'text',x:360,y:130,text:'центральный',fs:8,fill:'#cc0000',anc:'middle'},
+{id:'exp1',type:'text',x:436,y:66,text:'Центральный',fs:8.5,fill:'#222',anc:'middle'},
+{id:'exp2',type:'text',x:436,y:77,text:'угол',fs:8.5,fill:'#222',anc:'middle'},
+{id:'exp3',type:'text',x:436,y:88,text:'измеряется',fs:8.5,fill:'#222',anc:'middle'},
+{id:'exp4',type:'text',x:436,y:99,text:'дугой,',fs:8.5,fill:'#222',anc:'middle'},
+{id:'exp5',type:'text',x:436,y:110,text:'на которую',fs:8.5,fill:'#222',anc:'middle'},
+{id:'exp6',type:'text',x:436,y:121,text:'он опирается.',fs:8.5,fill:'#222',anc:'middle'},
+{id:'s2d1c',type:'circle',cx:65,cy:228,r:38,fill:'none',stroke:'#222',sw:1.5},
+{id:'s2d1cp',type:'circle',cx:65,cy:228,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s2d1l',type:'line',x1:120,y1:188,x2:120,y2:272,stroke:'#2244cc',sw:1.5},
+{id:'s2d1a',type:'line',x1:65,y1:228,x2:120,y2:228,stroke:'#222',sw:1,dash:'3,2'},
+{id:'s2d1to',type:'text',x:68,y:231,text:'O',fs:9,fill:'#222',anc:'start'},
+{id:'s2d1tl',type:'text',x:122,y:191,text:'l',fs:9,fill:'#222',anc:'start'},
+{id:'s2d1ta',type:'text',x:90,y:222,text:'a',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d1tc',type:'text',x:72,y:208,text:'r < a',fs:8.5,fill:'#222',anc:'start'},
+{id:'s2d1d1',type:'text',x:65,y:282,text:'1. Окружность и пря-',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d1d2',type:'text',x:65,y:292,text:'мая не имеют общих',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d1d3',type:'text',x:65,y:302,text:'точек.',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d2c',type:'circle',cx:220,cy:228,r:35,fill:'none',stroke:'#222',sw:1.5},
+{id:'s2d2cp',type:'circle',cx:220,cy:228,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s2d2l',type:'line',x1:245,y1:188,x2:245,y2:272,stroke:'#2244cc',sw:1.5},
+{id:'s2d2a',type:'line',x1:220,y1:228,x2:245,y2:228,stroke:'#222',sw:1,dash:'3,2'},
+{id:'s2d2p1',type:'circle',cx:245,cy:203,r:2.5,fill:'#cc0000',stroke:'none',sw:0},
+{id:'s2d2p2',type:'circle',cx:245,cy:253,r:2.5,fill:'#cc0000',stroke:'none',sw:0},
+{id:'s2d2to',type:'text',x:223,y:231,text:'O',fs:9,fill:'#222',anc:'start'},
+{id:'s2d2tl',type:'text',x:247,y:191,text:'l',fs:9,fill:'#222',anc:'start'},
+{id:'s2d2ta',type:'text',x:230,y:222,text:'a',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d2tc',type:'text',x:185,y:208,text:'r > a',fs:8.5,fill:'#222',anc:'start'},
+{id:'s2d2d1',type:'text',x:185,y:282,text:'2. Окружность и пря-',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d2d2',type:'text',x:185,y:292,text:'мая имеют две общие',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d2d3',type:'text',x:185,y:302,text:'точки (l - секущая).',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d3c',type:'circle',cx:380,cy:228,r:37,fill:'none',stroke:'#222',sw:1.5},
+{id:'s2d3cp',type:'circle',cx:380,cy:228,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s2d3l',type:'line',x1:417,y1:188,x2:417,y2:272,stroke:'#cc0000',sw:1.5},
+{id:'s2d3tp',type:'circle',cx:417,cy:228,r:2.5,fill:'#cc0000',stroke:'none',sw:0},
+{id:'s2d3a',type:'line',x1:380,y1:228,x2:417,y2:228,stroke:'#222',sw:1,dash:'3,2'},
+{id:'s2d3to',type:'text',x:383,y:231,text:'O',fs:9,fill:'#222',anc:'start'},
+{id:'s2d3ta',type:'text',x:397,y:222,text:'a',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d3tc',type:'text',x:350,y:208,text:'r = a',fs:8.5,fill:'#222',anc:'start'},
+{id:'s2d3d1',type:'text',x:348,y:282,text:'3. Окружность и прямая',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d3d2',type:'text',x:348,y:292,text:'имеют одну общую точ-',fs:8,fill:'#222',anc:'middle'},
+{id:'s2d3d3',type:'text',x:348,y:302,text:'ку (l - касательная).',fs:8,fill:'#222',anc:'middle'},
+{id:'s3d1t1',type:'line',x1:125,y1:358,x2:95,y2:329,stroke:'#cc0000',sw:1.4},
+{id:'s3d1t2',type:'line',x1:125,y1:358,x2:95,y2:381,stroke:'#cc0000',sw:1.4},
+{id:'s3d1c',type:'circle',cx:72,cy:358,r:35,fill:'none',stroke:'#222',sw:1.5},
+{id:'s3d1cp',type:'circle',cx:72,cy:358,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s3d1tp1',type:'circle',cx:95,cy:329,r:2.5,fill:'#cc0000',stroke:'none',sw:0},
+{id:'s3d1tp2',type:'circle',cx:95,cy:381,r:2.5,fill:'#cc0000',stroke:'none',sw:0},
+{id:'s3d1ap',type:'circle',cx:125,cy:358,r:2.5,fill:'#222',stroke:'none',sw:0},
+{id:'s3d1to',type:'text',x:75,y:361,text:'O',fs:9,fill:'#222',anc:'start'},
+{id:'s3d1ta',type:'text',x:128,y:356,text:'A',fs:9,fill:'#222',anc:'start'},
+{id:'s3d1tt1',type:'text',x:28,y:325,text:'касательная',fs:8,fill:'#cc0000',anc:'start'},
+{id:'s3d1tt2',type:'text',x:28,y:390,text:'касательная',fs:8,fill:'#cc0000',anc:'start'},
+{id:'s3d1tc',type:'text',x:88,y:343,text:'r > OA',fs:8.5,fill:'#222',anc:'start'},
+{id:'s3d1d1',type:'text',x:65,y:418,text:'1. Точка лежит вне ок-',fs:8,fill:'#222',anc:'middle'},
+{id:'s3d1d2',type:'text',x:65,y:428,text:'ружности (2 касательных',fs:8,fill:'#222',anc:'middle'},
+{id:'s3d1d3',type:'text',x:65,y:438,text:'через точку А).',fs:8,fill:'#222',anc:'middle'},
+{id:'s3d2c',type:'circle',cx:228,cy:358,r:37,fill:'none',stroke:'#222',sw:1.5},
+{id:'s3d2cp',type:'circle',cx:228,cy:358,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s3d2ap',type:'circle',cx:248,cy:350,r:2.5,fill:'#222',stroke:'none',sw:0},
+{id:'s3d2to',type:'text',x:231,y:361,text:'O',fs:9,fill:'#222',anc:'start'},
+{id:'s3d2ta',type:'text',x:252,y:349,text:'A',fs:9,fill:'#222',anc:'start'},
+{id:'s3d2tc',type:'text',x:193,y:341,text:'r > OA',fs:8.5,fill:'#222',anc:'start'},
+{id:'s3d2d1',type:'text',x:228,y:418,text:'2. Точка лежит внутри',fs:8,fill:'#222',anc:'middle'},
+{id:'s3d2d2',type:'text',x:228,y:428,text:'окружности (нет каса-',fs:8,fill:'#222',anc:'middle'},
+{id:'s3d2d3',type:'text',x:228,y:438,text:'тельных через точку А).',fs:8,fill:'#222',anc:'middle'},
+{id:'s3d3tl',type:'line',x1:417,y1:320,x2:417,y2:396,stroke:'#cc0000',sw:1.5},
+{id:'s3d3c',type:'circle',cx:380,cy:358,r:37,fill:'none',stroke:'#222',sw:1.5},
+{id:'s3d3cp',type:'circle',cx:380,cy:358,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s3d3ap',type:'circle',cx:417,cy:358,r:2.5,fill:'#222',stroke:'none',sw:0},
+{id:'s3d3to',type:'text',x:383,y:361,text:'O',fs:9,fill:'#222',anc:'start'},
+{id:'s3d3ta',type:'text',x:420,y:356,text:'A',fs:9,fill:'#222',anc:'start'},
+{id:'s3d3tt',type:'text',x:421,y:325,text:'касательная',fs:8,fill:'#cc0000',anc:'start'},
+{id:'s3d3tc',type:'text',x:352,y:341,text:'r = OA',fs:8.5,fill:'#222',anc:'start'},
+{id:'s3d3d1',type:'text',x:380,y:418,text:'3. Точка лежит на ок-',fs:8,fill:'#222',anc:'middle'},
+{id:'s3d3d2',type:'text',x:380,y:428,text:'ружности (1 касательная',fs:8,fill:'#222',anc:'middle'},
+{id:'s3d3d3',type:'text',x:380,y:438,text:'через точку А).',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d1c1',type:'circle',cx:68,cy:497,r:42,fill:'none',stroke:'#222',sw:1.5},
+{id:'s4d1o1',type:'circle',cx:68,cy:497,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d1c2',type:'circle',cx:64,cy:500,r:16,fill:'none',stroke:'#cc0000',sw:1.5},
+{id:'s4d1o2',type:'circle',cx:64,cy:500,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d1al',type:'line',x1:68,y1:497,x2:64,y2:500,stroke:'#888',sw:1,dash:'2,2'},
+{id:'s4d1tr1',type:'text',x:33,y:477,text:'R1',fs:9,fill:'#222',anc:'start'},
+{id:'s4d1tr2',type:'text',x:47,y:515,text:'R2',fs:9,fill:'#cc0000',anc:'start'},
+{id:'s4d1to1',type:'text',x:71,y:495,text:'O1',fs:9,fill:'#222',anc:'start'},
+{id:'s4d1to2',type:'text',x:50,y:498,text:'O2',fs:9,fill:'#cc0000',anc:'start'},
+{id:'s4d1ta',type:'text',x:50,y:465,text:'a = O1O2',fs:8,fill:'#222',anc:'start'},
+{id:'s4d1tn1',type:'text',x:68,y:475,text:'нет общих',fs:8,fill:'#555',anc:'middle'},
+{id:'s4d1tn2',type:'text',x:68,y:485,text:'касательных',fs:8,fill:'#555',anc:'middle'},
+{id:'s4d1d1',type:'text',x:68,y:551,text:'1. Одна окружность',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d1d2',type:'text',x:68,y:561,text:'лежит внутри другой.',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d1d3',type:'text',x:68,y:571,text:'a < R1 - R2',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d2c1',type:'circle',cx:215,cy:497,r:40,fill:'none',stroke:'#222',sw:1.5},
+{id:'s4d2o1',type:'circle',cx:215,cy:497,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d2c2',type:'circle',cx:233,cy:497,r:22,fill:'none',stroke:'#cc0000',sw:1.5},
+{id:'s4d2o2',type:'circle',cx:233,cy:497,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d2mp',type:'circle',cx:255,cy:497,r:2.5,fill:'#222',stroke:'none',sw:0},
+{id:'s4d2tl',type:'line',x1:255,y1:462,x2:255,y2:532,stroke:'#228822',sw:1.5},
+{id:'s4d2to1',type:'text',x:207,y:495,text:'O1',fs:9,fill:'#222',anc:'start'},
+{id:'s4d2to2',type:'text',x:237,y:495,text:'O2',fs:9,fill:'#cc0000',anc:'start'},
+{id:'s4d2tm',type:'text',x:257,y:494,text:'M',fs:9,fill:'#222',anc:'start'},
+{id:'s4d2tg1',type:'text',x:170,y:468,text:'1 общая',fs:8,fill:'#228822',anc:'start'},
+{id:'s4d2tg2',type:'text',x:170,y:478,text:'касательная',fs:8,fill:'#228822',anc:'start'},
+{id:'s4d2d1',type:'text',x:215,y:551,text:'2. Одна окружность ка-',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d2d2',type:'text',x:215,y:561,text:'сается другой изнутри.',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d2d3',type:'text',x:215,y:571,text:'a = R1 - R2',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d3tg1',type:'line',x1:385,y1:462,x2:483,y2:486,stroke:'#228822',sw:1.5},
+{id:'s4d3tg2',type:'line',x1:325,y1:546,x2:483,y2:508,stroke:'#228822',sw:1.5},
+{id:'s4d3c1',type:'circle',cx:370,cy:497,r:37,fill:'none',stroke:'#222',sw:1.5},
+{id:'s4d3o1',type:'circle',cx:370,cy:497,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d3c2',type:'circle',cx:400,cy:497,r:30,fill:'none',stroke:'#cc0000',sw:1.5},
+{id:'s4d3o2',type:'circle',cx:400,cy:497,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d3mp',type:'circle',cx:393,cy:461,r:2.5,fill:'#222',stroke:'none',sw:0},
+{id:'s4d3np',type:'circle',cx:393,cy:533,r:2.5,fill:'#222',stroke:'none',sw:0},
+{id:'s4d3to1',type:'text',x:358,y:495,text:'O1',fs:9,fill:'#222',anc:'start'},
+{id:'s4d3to2',type:'text',x:404,y:495,text:'O2',fs:9,fill:'#cc0000',anc:'start'},
+{id:'s4d3tr1',type:'text',x:336,y:470,text:'R1',fs:9,fill:'#222',anc:'start'},
+{id:'s4d3tr2',type:'text',x:418,y:476,text:'R2',fs:9,fill:'#cc0000',anc:'start'},
+{id:'s4d3tm',type:'text',x:395,y:460,text:'M',fs:9,fill:'#222',anc:'start'},
+{id:'s4d3tn',type:'text',x:395,y:543,text:'N',fs:9,fill:'#222',anc:'start'},
+{id:'s4d3tg',type:'text',x:415,y:467,text:'2 общих',fs:8,fill:'#228822',anc:'start'},
+{id:'s4d3tg_',type:'text',x:415,y:477,text:'касательных',fs:8,fill:'#228822',anc:'start'},
+{id:'s4d3d1',type:'text',x:385,y:551,text:'3. Окружности пере-',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d3d2',type:'text',x:385,y:561,text:'секаются.',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d3d3',type:'text',x:385,y:571,text:'R1-R2 < a < R1+R2',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d4e1',type:'line',x1:53,y1:581,x2:168,y2:619,stroke:'#228822',sw:1.5},
+{id:'s4d4e2',type:'line',x1:30,y1:686,x2:168,y2:641,stroke:'#228822',sw:1.5},
+{id:'s4d4e3',type:'line',x1:118,y1:590,x2:118,y2:670,stroke:'#228822',sw:1.5},
+{id:'s4d4c1',type:'circle',cx:80,cy:630,r:38,fill:'none',stroke:'#222',sw:1.5},
+{id:'s4d4o1',type:'circle',cx:80,cy:630,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d4c2',type:'circle',cx:138,cy:630,r:20,fill:'none',stroke:'#cc0000',sw:1.5},
+{id:'s4d4o2',type:'circle',cx:138,cy:630,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d4mp',type:'circle',cx:118,cy:630,r:2.5,fill:'#222',stroke:'none',sw:0},
+{id:'s4d4to1',type:'text',x:72,y:628,text:'O1',fs:9,fill:'#222',anc:'start'},
+{id:'s4d4to2',type:'text',x:141,y:628,text:'O2',fs:9,fill:'#cc0000',anc:'start'},
+{id:'s4d4tr1',type:'text',x:43,y:603,text:'R1',fs:9,fill:'#222',anc:'start'},
+{id:'s4d4tr2',type:'text',x:141,y:614,text:'R2',fs:9,fill:'#cc0000',anc:'start'},
+{id:'s4d4tm',type:'text',x:120,y:627,text:'M',fs:9,fill:'#222',anc:'start'},
+{id:'s4d4tg1',type:'text',x:120,y:587,text:'3 общих',fs:8,fill:'#228822',anc:'start'},
+{id:'s4d4tg2',type:'text',x:120,y:597,text:'касательных',fs:8,fill:'#228822',anc:'start'},
+{id:'s4d4d1',type:'text',x:88,y:690,text:'4. Одна окружность касается',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d4d2',type:'text',x:88,y:700,text:'другой снаружи. a = R1 + R2',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d5e1',type:'line',x1:245,y1:584,x2:430,y2:612,stroke:'#228822',sw:1.5},
+{id:'s4d5e2',type:'line',x1:245,y1:676,x2:430,y2:648,stroke:'#228822',sw:1.5},
+{id:'s4d5i1',type:'line',x1:296,y1:581,x2:430,y2:679,stroke:'#228822',sw:1.5},
+{id:'s4d5i2',type:'line',x1:271,y1:697,x2:430,y2:581,stroke:'#228822',sw:1.5},
+{id:'s4d5c1',type:'circle',cx:300,cy:630,r:37,fill:'none',stroke:'#222',sw:1.5},
+{id:'s4d5o1',type:'circle',cx:300,cy:630,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d5c2',type:'circle',cx:400,cy:630,r:22,fill:'none',stroke:'#cc0000',sw:1.5},
+{id:'s4d5o2',type:'circle',cx:400,cy:630,r:2,fill:'#222',stroke:'none',sw:0},
+{id:'s4d5to1',type:'text',x:291,y:628,text:'O1',fs:9,fill:'#222',anc:'start'},
+{id:'s4d5to2',type:'text',x:403,y:628,text:'O2',fs:9,fill:'#cc0000',anc:'start'},
+{id:'s4d5tr1',type:'text',x:263,y:603,text:'R1',fs:9,fill:'#222',anc:'start'},
+{id:'s4d5tr2',type:'text',x:403,y:614,text:'R2',fs:9,fill:'#cc0000',anc:'start'},
+{id:'s4d5tg1',type:'text',x:439,y:587,text:'4 общих',fs:8,fill:'#228822',anc:'start'},
+{id:'s4d5tg2',type:'text',x:439,y:597,text:'касательных',fs:8,fill:'#228822',anc:'start'},
+{id:'s4d5d1',type:'text',x:360,y:690,text:'5. Одна окружность лежит вне',fs:8,fill:'#222',anc:'middle'},
+{id:'s4d5d2',type:'text',x:360,y:700,text:'другой. a > R1 + R2',fs:8,fill:'#222',anc:'middle'}
+];
+
+// ── RENDER ────────────────────────────────────────────
+function mkel(tag,a={}){
+  const e=document.createElementNS(NS,tag);
+  Object.entries(a).forEach(([k,v])=>e.setAttribute(k,v));
+  return e;
+}
+function mkEl(o){
+  const g=mkel('g',{'data-id':o.id,'class':'obj-g'+(o.locked?' locked':'')});
+  if(!o.locked) g.style.cursor='move';
+  if(o.rot){
+    const b=bboxRaw(o), cx=b.x+b.w/2, cy=b.y+b.h/2;
+    g.setAttribute('transform',`rotate(${o.rot},${cx},${cy})`);
+  }
+  if(o.type==='rect'){
+    g.appendChild(mkel('rect',{x:o.x,y:o.y,width:o.w,height:o.h,fill:o.fill||'none',stroke:o.stroke||'none','stroke-width':o.sw||0}));
+    g.appendChild(mkel('rect',{x:o.x,y:o.y,width:o.w,height:o.h,class:'hit'}));
+  } else if(o.type==='circle'){
+    g.appendChild(mkel('circle',{cx:o.cx,cy:o.cy,r:o.r,fill:o.fill||'none',stroke:o.stroke||'none','stroke-width':o.sw||0}));
+    g.appendChild(mkel('circle',{cx:o.cx,cy:o.cy,r:Math.max(o.r,8),class:'hit'}));
+  } else if(o.type==='line'){
+    const a={x1:o.x1,y1:o.y1,x2:o.x2,y2:o.y2,stroke:o.stroke||'#222','stroke-width':o.sw||1.5};
+    if(o.dash)a['stroke-dasharray']=o.dash;
+    g.appendChild(mkel('line',a));
+    g.appendChild(mkel('line',{x1:o.x1,y1:o.y1,x2:o.x2,y2:o.y2,class:'hit','stroke-width':12}));
+  } else if(o.type==='text'){
+    const t=mkel('text',{x:o.x,y:o.y,'font-family':o.fontFamily||'Arial,sans-serif','font-size':o.fs||10,'font-weight':o.fw||'normal',fill:o.fill||'#222','text-anchor':o.anc||'start'});
+    t.textContent=o.text||'';
+    g.appendChild(t);
+    const tw=((o.text||'').length*(o.fs||10)*0.62)+10;
+    const hx=o.anc==='middle'?o.x-tw/2:o.x-2;
+    g.appendChild(mkel('rect',{x:hx,y:o.y-(o.fs||10)-2,width:tw,height:(o.fs||10)+6,class:'hit'}));
+  } else if(o.type==='textblock'){
+    const lh=o.lh||(o.fs||10)*1.4, fs=o.fs||10, lines=o.lines||[];
+    lines.forEach((ln,i)=>{
+      const t=mkel('text',{x:o.x,y:o.y+i*lh,'font-family':o.fontFamily||'Arial,sans-serif','font-size':fs,fill:o.fill||'#222','text-anchor':'start'});
+      t.textContent=ln; g.appendChild(t);
+    });
+    const mw=Math.max(10,...lines.map(l=>l.length))*fs*0.62+10;
+    g.appendChild(mkel('rect',{x:o.x-2,y:o.y-fs-2,width:mw,height:lines.length*lh+8,class:'hit'}));
+  }
+  return g;
+}
+function renderOne(o){
+  const ex=$ol.querySelector(`[data-id="${o.id}"]`);
+  if(ex)ex.replaceWith(mkEl(o)); else $ol.appendChild(mkEl(o));
+}
+function renderAll(){$ol.innerHTML='';objs.forEach(renderOne);}
+
+// ── EVENT DELEGATION ─────────────────────────────────
+function getObj(e){
+  const g=e.target.closest('.obj-g');
+  if(!g)return null;
+  return objs.find(o=>o.id===g.getAttribute('data-id'))||null;
+}
+$ol.addEventListener('mousedown',e=>{
+  const o=getObj(e);
+  if(o&&!o.locked)onObjMD(e,o);
+});
+$ol.addEventListener('dblclick',e=>{
+  const o=getObj(e);
+  if(o&&!o.locked&&isTxt(o))enterEdit(o);
+});
+
+// ── BBOX ─────────────────────────────────────────────
+function bboxRaw(o){
+  if(o.type==='rect')return{x:o.x,y:o.y,w:o.w,h:o.h};
+  if(o.type==='circle')return{x:o.cx-o.r,y:o.cy-o.r,w:o.r*2,h:o.r*2};
+  if(o.type==='line'){const x=Math.min(o.x1,o.x2),y=Math.min(o.y1,o.y2);return{x,y,w:Math.abs(o.x2-o.x1)||12,h:Math.abs(o.y2-o.y1)||12};}
+  if(o.type==='text'){const fs=o.fs||10,w=(o.text||'').length*fs*0.62+10;return{x:o.anc==='middle'?o.x-w/2:o.x,y:o.y-fs,w,h:fs+4};}
+  if(o.type==='textblock'){const fs=o.fs||10,lh=o.lh||fs*1.4,mw=Math.max(10,...(o.lines||['']).map(l=>l.length))*fs*0.62+10;return{x:o.x,y:o.y-fs,w:mw,h:(o.lines||[]).length*lh};}
+  return{x:0,y:0,w:10,h:10};
+}
+function unionBbox(list){
+  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+  list.forEach(o=>{const b=bboxRaw(o);x1=Math.min(x1,b.x);y1=Math.min(y1,b.y);x2=Math.max(x2,b.x+b.w);y2=Math.max(y2,b.y+b.h);});
+  return{x:x1,y:y1,w:x2-x1,h:y2-y1};
+}
+function rbHits(rx,ry,rw,rh2,o){
+  const b=bboxRaw(o);
+  return!(b.x>rx+rw||b.x+b.w<rx||b.y>ry+rh2||b.y+b.h<ry);
+}
+function isTxt(o){return o&&(o.type==='text'||o.type==='textblock');}
+
+// ── TEXT EDIT MODE ────────────────────────────────────
+function enterEdit(o){
+  if(mode==='editing')exitEdit(true);
+  mode='editing';
+  editObj=o;
+  clearOverlay();
+
+  const b=bboxRaw(o);
+  const fs=o.fs||10;
+  const lh=o.lh||fs*1.4;
+
+  // Padding inside editor
+  const PAD=4;
+  const fw=Math.max(120, b.w+PAD*2+20);
+  const fh=Math.max(fs+PAD*2+4, b.h+PAD*2+8);
+
+  // Create foreignObject positioned at bbox
+  editFO=mkel('foreignObject',{
+    x: b.x-PAD,
+    y: b.y-PAD,
+    width: fw,
+    height: fh
+  });
+
+  // Inner div (contenteditable)
+  editDiv=document.createElement('div');
+  editDiv.contentEditable='true';
+  editDiv.className='svg-editor';
+  editDiv.style.fontSize=fs+'px';
+  editDiv.style.lineHeight=lh+'px';
+  editDiv.style.fontFamily=o.fontFamily||'Arial,sans-serif';
+  editDiv.style.fontWeight=o.fw||'normal';
+  editDiv.style.color=o.fill||'#222';
+  editDiv.style.minHeight=fh+'px';
+  editDiv.style.width=fw+'px';
+
+  // Populate content
+  if(o.type==='text'){
+    editDiv.textContent=o.text||'';
+  } else {
+    editDiv.textContent=(o.lines||[]).join('\n');
+  }
+
+  editFO.appendChild(editDiv);
+  $ol.appendChild(editFO);
+
+  // Hide the original text element while editing
+  const origEl=$ol.querySelector(`[data-id="${o.id}"]`);
+  if(origEl) origEl.style.visibility='hidden';
+
+  // Focus and select all
+  editDiv.focus();
+  const range=document.createRange();
+  range.selectNodeContents(editDiv);
+  const sel2=window.getSelection();
+  sel2.removeAllRanges();
+  sel2.addRange(range);
+
+  // Show format bar
+  showFmtBar();
+  st('✏️ Редактирование текста  •  Ctrl+Enter — сохранить  •  Escape — отмена');
+}
+
+function exitEdit(save){
+  if(mode!=='editing'||!editObj)return;
+  
+  if(save && editDiv){
+    // Extract text from contenteditable
+    // innerText preserves line breaks as \n
+    const raw=editDiv.innerText||editDiv.textContent||'';
+    const lines=raw.split('\n');
+    
+    if(editObj.type==='text'){
+      editObj.text=lines[0]||'';
+    } else {
+      // textblock: update lines, recalc lh
+      editObj.lines=lines.length?lines:[''];
+    }
+    snapshot();
+  }
+
+  // Remove foreignObject
+  if(editFO){editFO.remove();editFO=null;editDiv=null;}
+
+  // Restore original element visibility and re-render
+  const origEl=$ol.querySelector(`[data-id="${editObj.id}"]`);
+  if(origEl)origEl.style.visibility='';
+  renderOne(editObj);
+
+  hideFmtBar();
+  const prevObj=editObj;
+  editObj=null;
+  mode='idle';
+  selectObj(prevObj);
+}
+
+// Click outside SVG editor → save and exit
+document.addEventListener('mousedown',e=>{
+  if(mode!=='editing')return;
+  if(editDiv&&editDiv.contains(e.target))return;
+  if(editFO&&editFO.contains(e.target))return;
+  if(e.target.closest('#fmt-bar'))return;
+  exitEdit(true);
+});
+
+// ── SELECTION OVERLAY ─────────────────────────────────
+const HS=8;
+function clearOverlay(){$sl.innerHTML='';}
+
+function drawSingleHandles(o){
+  clearOverlay();
+  const col=isTxt(o)?'#7c4dff':'#2196F3';
+  const b=bboxRaw(o), p=6;
+  const bx=b.x-p, by=b.y-p, bw=b.w+p*2, bh=b.h+p*2;
+  const rot=o.rot||0;
+  const cx2=b.x+b.w/2, cy2=b.y+b.h/2;
+  const grp=mkel('g', rot?{transform:`rotate(${rot},${cx2},${cy2})`}:{});
+
+  grp.appendChild(mkel('rect',{x:bx,y:by,width:bw,height:bh,
+    fill:isTxt(o)?'rgba(124,77,255,0.05)':'none',
+    stroke:col,'stroke-width':1.6,'stroke-dasharray':'5,3'}));
+
+  const hpts=[
+    {id:'nw',hx:bx,hy:by},{id:'n',hx:bx+bw/2,hy:by},{id:'ne',hx:bx+bw,hy:by},
+    {id:'e',hx:bx+bw,hy:by+bh/2},{id:'se',hx:bx+bw,hy:by+bh},
+    {id:'s',hx:bx+bw/2,hy:by+bh},{id:'sw',hx:bx,hy:by+bh},{id:'w',hx:bx,hy:by+bh/2}
+  ];
+  const curs={nw:'nw-resize',n:'n-resize',ne:'ne-resize',e:'e-resize',
+              se:'se-resize',s:'s-resize',sw:'sw-resize',w:'w-resize'};
+  hpts.forEach(hp=>{
+    const r=mkel('rect',{x:hp.hx-HS/2,y:hp.hy-HS/2,width:HS,height:HS,
+      fill:'#fff',stroke:col,'stroke-width':1.5,style:'cursor:'+curs[hp.id]});
+    r.style.pointerEvents='all';
+    r.addEventListener('mousedown',e=>{e.stopPropagation();startResize(e,o,hp.id,{x:bx,y:by,w:bw,h:bh});});
+    grp.appendChild(r);
+  });
+
+  // Rotation handle
+  const rotY=by-22;
+  grp.appendChild(mkel('line',{x1:bx+bw/2,y1:by,x2:bx+bw/2,y2:rotY+7,
+    stroke:'#ff6600','stroke-width':1.2,'stroke-dasharray':'3,2'}));
+  const rcirc=mkel('circle',{cx:bx+bw/2,cy:rotY,r:7,
+    fill:'#fff3e0',stroke:'#ff6600','stroke-width':2,style:'cursor:grab'});
+  rcirc.style.pointerEvents='all';
+  rcirc.addEventListener('mousedown',e=>{e.stopPropagation();startRotate(e,o);});
+  grp.appendChild(rcirc);
+  // Rotation arrow arc inside circle
+  const rx=bx+bw/2, ry2=rotY;
+  grp.appendChild(mkel('path',{d:`M${rx-3},${ry2-2} a4,4 0 0,1 7,1`,
+    fill:'none',stroke:'#ff6600','stroke-width':1.8,'stroke-linecap':'round'}));
+
+  // Double-click hint for text
+  if(isTxt(o)){
+    const hint=mkel('text',{x:bx+bw/2,y:by-8,'font-size':8,fill:'#7c4dff',
+      'text-anchor':'middle','font-family':'Arial,sans-serif'});
+    hint.textContent='2× для редактирования';
+    grp.appendChild(hint);
+  }
+
+  $sl.appendChild(grp);
+}
+
+function drawMultiHandles(ids){
+  clearOverlay();
+  const list=objs.filter(o=>ids.includes(o.id)&&!o.locked);
+  if(!list.length)return;
+  const b=unionBbox(list), p=8;
+  const bx=b.x-p, by=b.y-p, bw=b.w+p*2, bh=b.h+p*2;
+  $sl.appendChild(mkel('rect',{x:bx,y:by,width:bw,height:bh,
+    fill:'rgba(0,188,212,0.04)',stroke:'#00bcd4','stroke-width':1.6,'stroke-dasharray':'6,3'}));
+  list.forEach(o=>{
+    const ob=bboxRaw(o);
+    const r=mkel('rect',{x:ob.x-3,y:ob.y-3,width:ob.w+6,height:ob.h+6,
+      fill:'none',stroke:'#00bcd4','stroke-width':0.8,'stroke-dasharray':'3,2',opacity:'0.7'});
+    if(o.rot){const cx2=ob.x+ob.w/2,cy2=ob.y+ob.h/2;r.setAttribute('transform',`rotate(${o.rot},${cx2},${cy2})`);}
+    $sl.appendChild(r);
+  });
+  const mcx=bx+bw/2, mcy=by+bh/2;
+  const mh=mkel('rect',{x:mcx-12,y:mcy-12,width:24,height:24,
+    fill:'rgba(0,188,212,0.18)',stroke:'#00bcd4','stroke-width':1.5,rx:4,style:'cursor:move'});
+  mh.style.pointerEvents='all';
+  mh.addEventListener('mousedown',e=>{e.stopPropagation();startMultiDrag(e);});
+  $sl.appendChild(mh);
+  $sl.appendChild(mkel('line',{x1:mcx-7,y1:mcy,x2:mcx+7,y2:mcy,stroke:'#00bcd4','stroke-width':1.8}));
+  $sl.appendChild(mkel('line',{x1:mcx,y1:mcy-7,x2:mcx,y2:mcy+7,stroke:'#00bcd4','stroke-width':1.8}));
+  st('Выделено: '+list.length+' объектов — тяните крестик или объект для перемещения');
+}
+
+function redrawSel(){
+  if(mode==='editing')return;
+  if(multiSel.length>0)drawMultiHandles(multiSel);
+  else if(sel)drawSingleHandles(sel);
+  else clearOverlay();
+}
+
+// ── CLEAR ─────────────────────────────────────────────
+function clearAll(){
+  if(mode==='editing'){exitEdit(true);return;}
+  sel=null; multiSel=[]; multiStarts={};
+  mode='idle';
+  clearOverlay();
+  st('Клик — выделить • Двойной клик на текст — редактировать • Тяни по пустому — рамка выделения');
+}
+function selectObj(o){
+  if(mode==='editing')exitEdit(true);
+  sel=o; multiSel=[];
+  mode='idle';
+  redrawSel();
+  if(o){
+    document.getElementById('sc_col').value=toHex(o.stroke||'#222');
+    document.getElementById('fc_col').value=toHex(o.fill||'#fff');
+    document.getElementById('sw_in').value=o.sw||1.5;
+    document.getElementById('rot_in').value=o.rot||0;
+    if(!isTxt(o))st('Выделено: ['+o.id+'] '+o.type);
+    else st('Выделено: текст — двойной клик для редактирования');
+  } else clearAll();
+}
+function toHex(c){
+  if(!c||c==='none')return'#ffffff';
+  if(c.startsWith('#'))return c.length===4?`#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}`:c.slice(0,7);
+  return'#222222';
+}
+
+// ── SVG COORDS ────────────────────────────────────────
+function getPt(e){
+  const pt=$svg.createSVGPoint();
+  pt.x=e.clientX; pt.y=e.clientY;
+  return pt.matrixTransform($svg.getScreenCTM().inverse());
+}
+
+// ── INTERACTION STARTERS ──────────────────────────────
+function startResize(e,o,handleId,selbox){
+  mode='resize'; rh=handleId;
+  ds=getPt(e); os=JSON.parse(JSON.stringify(o)); os._sb={...selbox};
+  e.preventDefault();
+}
+function startRotate(e,o){
+  mode='rotate';
+  ds=getPt(e); os=JSON.parse(JSON.stringify(o));
+  const b=bboxRaw(o);
+  os._cx=b.x+b.w/2; os._cy=b.y+b.h/2;
+  os._sa=Math.atan2(ds.y-os._cy,ds.x-os._cx)*180/Math.PI;
+  os._sr=o.rot||0;
+  e.preventDefault();
+}
+function startMultiDrag(e){
+  mode='multidrag'; ds=getPt(e); multiStarts={};
+  multiSel.forEach(id=>{
+    const o=objs.find(ob=>ob.id===id);
+    if(o)multiStarts[id]=JSON.parse(JSON.stringify(o));
+  });
+  e.preventDefault();
+}
+
+// ── OBJ MOUSEDOWN ────────────────────────────────────
+function onObjMD(e,o){
+  if(mode==='editing'){
+    // Click on different obj while editing → save and select new
+    if(o.id!==editObj?.id){exitEdit(true);selectObj(o);}
+    return;
+  }
+  e.stopPropagation();
+  const p=getPt(e);
+
+  if(e.shiftKey){
+    const idx=multiSel.indexOf(o.id);
+    if(idx>=0)multiSel.splice(idx,1);
+    else{if(sel){multiSel=[sel.id];sel=null;}multiSel.push(o.id);}
+    if(multiSel.length===1){selectObj(objs.find(ob=>ob.id===multiSel[0]));return;}
+    if(multiSel.length===0){clearAll();return;}
+    redrawSel(); e.preventDefault(); return;
+  }
+  if(multiSel.includes(o.id)){startMultiDrag(e);return;}
+
+  selectObj(o);
+  mode='drag'; ds=p; os=JSON.parse(JSON.stringify(o));
+  e.preventDefault();
+}
+
+// ── CANVAS MOUSEDOWN → rubber band ───────────────────
+$svg.addEventListener('mousedown',e=>{
+  if(mode==='editing'){exitEdit(true);return;}
+  const og=e.target.closest('.obj-g:not(.locked)');
+  if(og)return;
+  clearAll();
+  const p=getPt(e);
+  mode='rubberband'; rbStart={x:p.x,y:p.y};
+  rbEl=mkel('rect',{x:p.x,y:p.y,width:0,height:0,
+    fill:'rgba(0,188,212,0.07)',stroke:'#00bcd4','stroke-width':1.3,'stroke-dasharray':'4,3'});
+  $sl.appendChild(rbEl);
+  e.preventDefault();
+});
+
+// ── MOUSEMOVE ─────────────────────────────────────────
+window.addEventListener('mousemove',e=>{
+  if(mode==='editing')return;
+  const p=getPt(e);
+  const dx=p.x-ds.x, dy=p.y-ds.y;
+
+  if(mode==='rubberband'&&rbEl){
+    const x=Math.min(p.x,rbStart.x),y=Math.min(p.y,rbStart.y);
+    const w=Math.abs(p.x-rbStart.x),h=Math.abs(p.y-rbStart.y);
+    rbEl.setAttribute('x',x);rbEl.setAttribute('y',y);
+    rbEl.setAttribute('width',w);rbEl.setAttribute('height',h);
+    return;
+  }
+  if(mode==='multidrag'){
+    multiSel.forEach(id=>{
+      const o=objs.find(ob=>ob.id===id),s=multiStarts[id];
+      if(o&&s)mvObj(o,s,dx,dy);
+    });
+    multiSel.forEach(id=>{const o=objs.find(ob=>ob.id===id);if(o)renderOne(o);});
+    drawMultiHandles(multiSel); return;
+  }
+  if(mode==='drag'&&sel){mvObj(sel,os,dx,dy);renderOne(sel);drawSingleHandles(sel);return;}
+  if(mode==='resize'&&sel){rzObj(sel,os,rh,dx,dy);renderOne(sel);drawSingleHandles(sel);return;}
+  if(mode==='rotate'&&sel){
+    const a=Math.atan2(p.y-os._cy,p.x-os._cx)*180/Math.PI;
+    let nr=os._sr+(a-os._sa);
+    if(e.shiftKey)nr=Math.round(nr/15)*15;
+    sel.rot=((Math.round(nr)%360)+360)%360;
+    document.getElementById('rot_in').value=sel.rot;
+    renderOne(sel);drawSingleHandles(sel);
+  }
+});
+
+// ── MOUSEUP ───────────────────────────────────────────
+window.addEventListener('mouseup',e=>{
+  if(mode==='editing')return;
+  if(mode==='rubberband'){
+    const p=getPt(e);
+    if(rbEl){rbEl.remove();rbEl=null;}
+    const x=Math.min(p.x,rbStart.x),y=Math.min(p.y,rbStart.y);
+    const w=Math.abs(p.x-rbStart.x),h=Math.abs(p.y-rbStart.y);
+    if(w>3&&h>3){
+      const hit=objs.filter(o=>!o.locked&&rbHits(x,y,w,h,o));
+      if(hit.length===1)selectObj(hit[0]);
+      else if(hit.length>1){sel=null;multiSel=hit.map(o=>o.id);drawMultiHandles(multiSel);}
+      else clearAll();
+    } else clearAll();
+    mode='idle'; return;
+  }
+  if(mode==='multidrag'||mode==='drag'||mode==='resize'||mode==='rotate')snapshot();
+  mode='idle';
+});
+
+// ── MOVE / RESIZE ─────────────────────────────────────
+function mvObj(o,s,dx,dy){
+  if(o.type==='rect'){o.x=s.x+dx;o.y=s.y+dy;}
+  else if(o.type==='circle'){o.cx=s.cx+dx;o.cy=s.cy+dy;}
+  else if(o.type==='line'){o.x1=s.x1+dx;o.y1=s.y1+dy;o.x2=s.x2+dx;o.y2=s.y2+dy;}
+  else{o.x=s.x+dx;o.y=s.y+dy;}
+}
+function rzObj(o,s,hid,dx,dy){
+  if(o.type==='rect'){
+    let{x,y,w,h}={x:s.x,y:s.y,w:s.w,h:s.h};
+    if(hid.includes('e'))w=Math.max(8,s.w+dx);
+    if(hid.includes('s'))h=Math.max(8,s.h+dy);
+    if(hid.includes('w')){x=s.x+dx;w=Math.max(8,s.w-dx);}
+    if(hid.includes('n')){y=s.y+dy;h=Math.max(8,s.h-dy);}
+    o.x=x;o.y=y;o.w=w;o.h=h;
+  } else if(o.type==='circle'){
+    const d=Math.sqrt(dx*dx+dy*dy);
+    const sign=(hid==='se'||hid==='e'||hid==='s')?1:(dx<0||dy<0?-1:1);
+    o.r=Math.max(3,s.r+sign*d*0.65);
+  } else if(o.type==='line'){
+    if('nw,w,n,sw'.includes(hid)){o.x1=s.x1+dx;o.y1=s.y1+dy;}
+    else{o.x2=s.x2+dx;o.y2=s.y2+dy;}
+  } else if(o.type==='text'){o.fs=Math.max(6,s.fs+(-dy)*0.4);}
+  else if(o.type==='textblock'){o.fs=Math.max(6,s.fs+(-dy)*0.4);o.lh=o.fs*1.35;}
+}
+
+// ── TOOLBAR ───────────────────────────────────────────
+function applyAttr(k,v){
+  const tgts=multiSel.length?multiSel.map(id=>objs.find(o=>o.id===id)).filter(Boolean):(sel?[sel]:[]);
+  if(!tgts.length)return;
+  tgts.forEach(o=>{o[k]=v;renderOne(o);});
+  redrawSel(); snapshot();
+}
+function applyRotation(deg){
+  if(!sel)return;
+  sel.rot=((Math.round(deg)%360)+360)%360;
+  renderOne(sel);drawSingleHandles(sel);snapshot();
+}
+function addObj(type){
+  const id='u'+(++oid),cx=Math.round(SVG_W/2),cy=Math.round(SVG_H/2);
+  let o;
+  if(type==='circle')o={id,type:'circle',cx,cy,r:40,fill:'none',stroke:'#222',sw:2,rot:0};
+  else if(type==='text')o={id,type:'textblock',x:cx-60,y:cy,lines:['Новый текст'],fs:16,fill:'#111',lh:22,rot:0};
+  else if(type==='line')o={id,type:'line',x1:cx-60,y1:cy,x2:cx+60,y2:cy,stroke:'#222',sw:2,rot:0};
+  else o={id,type:'rect',x:cx-60,y:cy-30,w:120,h:60,fill:'#fffde8',stroke:'#4a9e4a',sw:2,rot:0};
+  objs.push(o); renderOne(o); selectObj(o);
+  // Auto-enter edit for new text
+  if(type==='text') setTimeout(()=>enterEdit(o),50);
+  else snapshot();
+}
+function delSel(){
+  const ids=multiSel.length?[...multiSel]:(sel?[sel.id]:[]);
+  if(!ids.length)return;
+  if(mode==='editing')exitEdit(false);
+  objs=objs.filter(o=>!ids.includes(o.id));
+  ids.forEach(id=>$ol.querySelector(`[data-id="${id}"]`)?.remove());
+  clearAll(); snapshot();
+}
+function reorder(dir){
+  if(!sel)return;
+  const i=objs.findIndex(o=>o.id===sel.id);
+  if(i<0)return;
+  const j=i-dir;
+  if(j<0||j>=objs.length)return;
+  [objs[i],objs[j]]=[objs[j],objs[i]];
+  renderAll(); redrawSel(); snapshot();
+}
+
+// ── ZOOM ──────────────────────────────────────────────
+function doZoom(d){
+  if(d===0)scale=1; else scale=Math.max(0.15,Math.min(4,scale+d));
+  $svg.style.width=(SVG_W*scale)+'px';$svg.style.height=(SVG_H*scale)+'px';
+  document.getElementById('zl').textContent=Math.round(scale*100)+'%';
+}
+
+// ── FORMAT BAR ───────────────────────────────────────
+const $fmtBar=document.getElementById('fmt-bar');
+
+function showFmtBar(){
+  if(!editObj||!editFO)return;
+  $fmtBar.style.display='flex';
+  // Sync controls to object's current style
+  document.getElementById('fmt-fs').value=editObj.fs||10;
+  document.getElementById('fmt-col').value=toHex(editObj.fill||'#222222');
+  // Sync font selector — match stored fontFamily to one of the options
+  const ffSel=document.getElementById('fmt-font');
+  const stored=editObj.fontFamily||'Arial, sans-serif';
+  // Find closest option
+  let matched=false;
+  for(const opt of ffSel.options){
+    if(opt.value===stored){opt.selected=true;matched=true;break;}
+  }
+  if(!matched) ffSel.options[0].selected=true;
+  updateFmtBarState();
+  positionFmtBar();
+}
+
+function hideFmtBar(){
+  $fmtBar.style.display='none';
+}
+
+function positionFmtBar(){
+  if(!editFO||!$svg)return;
+  // Get screen position of the foreignObject
+  const svgRect=$svg.getBoundingClientRect();
+  const fox=parseFloat(editFO.getAttribute('x'))||0;
+  const foy=parseFloat(editFO.getAttribute('y'))||0;
+  // Convert SVG coords to screen coords
+  const pt=$svg.createSVGPoint();
+  pt.x=fox; pt.y=foy;
+  const screen=pt.matrixTransform($svg.getScreenCTM());
+  const barH=36;
+  let top=screen.y - barH - 6;
+  if(top < 4) top=screen.y + parseFloat(editFO.getAttribute('height'))*scale + 6;
+  $fmtBar.style.left=screen.x+'px';
+  $fmtBar.style.top=top+'px';
+}
+
+function updateFmtBarState(){
+  // Update bold/italic/underline button active state based on selection
+  document.getElementById('fmt-b').classList.toggle('active', document.queryCommandState('bold'));
+  document.getElementById('fmt-i').classList.toggle('active', document.queryCommandState('italic'));
+  document.getElementById('fmt-u').classList.toggle('active', document.queryCommandState('underline'));
+  // Alignment
+  ['fmt-al','fmt-ac','fmt-ar'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  if(document.queryCommandState('justifyLeft'))document.getElementById('fmt-al').classList.add('active');
+  if(document.queryCommandState('justifyCenter'))document.getElementById('fmt-ac').classList.add('active');
+  if(document.queryCommandState('justifyRight'))document.getElementById('fmt-ar').classList.add('active');
+}
+
+function fmtToggle(cmd){
+  if(!editDiv)return;
+  editDiv.focus();
+  document.execCommand(cmd,false,null);
+  updateFmtBarState();
+  // Sync bold → object fw property
+  if(cmd==='bold'&&editObj){
+    editObj.fw=document.queryCommandState('bold')?'bold':'normal';
+    // Update editDiv font-weight directly
+    editDiv.style.fontWeight=editObj.fw;
+  }
+}
+
+function fmtFontSize(px){
+  if(!editObj||isNaN(px)||px<4)return;
+  px=Math.min(120,Math.max(4,px));
+  editObj.fs=px;
+  editObj.lh=Math.round(px*1.4);
+  // Update the editor div live
+  if(editDiv){
+    editDiv.style.fontSize=px+'px';
+    editDiv.style.lineHeight=(px*1.4)+'px';
+  }
+  // Resize the foreignObject to fit
+  if(editFO){
+    const newH=Math.max(px+12, (editObj.lines||['']).length*(px*1.4)+12);
+    editFO.setAttribute('height', newH);
+  }
+  positionFmtBar();
+}
+
+function fmtAlign(dir){
+  if(!editDiv||!editObj)return;
+  editDiv.focus();
+  const cmds={left:'justifyLeft',center:'justifyCenter',right:'justifyRight'};
+  document.execCommand(cmds[dir],false,null);
+  // Map to SVG text-anchor
+  const anchors={left:'start',center:'middle',right:'end'};
+  editObj.anc=anchors[dir];
+  updateFmtBarState();
+}
+
+function fmtColor(hex){
+  if(!editObj)return;
+  editObj.fill=hex;
+  if(editDiv)editDiv.style.color=hex;
+  // Apply to selection too
+  if(editDiv){editDiv.focus();document.execCommand('foreColor',false,hex);}
+}
+
+function fmtFont(family){
+  if(!editObj)return;
+  // Store just the primary font name (first value before comma) as fontFamily
+  editObj.fontFamily=family;
+  if(editDiv) editDiv.style.fontFamily=family;
+}
+
+// Update fmt bar state on selection change inside editor
+document.addEventListener('selectionchange',()=>{
+  if(mode==='editing')updateFmtBarState();
+});
+
+// ── EXPORT ────────────────────────────────────────────
+function exportSVG(){
+  if(mode==='editing')exitEdit(true);
+  const cl=$svg.cloneNode(true);
+  cl.removeAttribute('style');
+  cl.setAttribute('width',SVG_W);cl.setAttribute('height',SVG_H);
+  cl.querySelector('#sl')?.replaceChildren();
+  cl.querySelectorAll('foreignObject').forEach(e=>e.remove());
+  cl.querySelectorAll('.hit').forEach(e=>e.remove());
+  cl.querySelectorAll('[data-id]').forEach(e=>{
+    e.removeAttribute('data-id');e.removeAttribute('class');
+    if(!e.getAttribute('transform'))e.removeAttribute('style');
+    else e.setAttribute('style','');
+  });
+  const str='<?xml version="1.0" encoding="UTF-8"?>\n'+cl.outerHTML;
+  const b64=btoa(unescape(encodeURIComponent(str)));
+  const a=document.createElement('a');
+  a.href='data:image/svg+xml;base64,'+b64;
+  a.download='okruzhnosti.svg';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  st('SVG скачан ✓');
+}
+
+function st(m){$st.textContent=m;}
+
+// ── INIT ──────────────────────────────────────────────
+objs=DATA.map(o=>({...o,rot:o.rot||0}));
+renderAll();
+snapshot();
+updateUndoUI();
+clearAll();
+</script>
+</body>
+</html>
